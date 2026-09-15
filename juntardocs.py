@@ -1,48 +1,59 @@
-import os
-from pypdf import PdfMerger
+import io
+import streamlit as st
+from pypdf import PdfWriter
 
+st.set_page_config(page_title="Mesclador de PDFs", page_icon="📄")
 
-def mesclar_pdfs(pasta_origem, nome_projeto, mes, ano, pasta_saida=None):
-    if pasta_saida is None:
-        pasta_saida = pasta_origem
-
-    # Garante que o mês tenha 2 dígitos (ex: 05 em vez de 5)
-    mes_formatado = f"{int(mes):02d}"
-    nome_arquivo_final = f"{nome_projeto}_{mes_formatado}-{ano}.pdf"
-    caminho_final = os.path.join(pasta_saida, nome_arquivo_final)
-
-    merger = PdfMerger()
-
-    # Filtra e ordena os arquivos .pdf da pasta
-    arquivos = [
-        f for f in os.listdir(pasta_origem) if f.lower().endswith(".pdf")
-    ]
-    arquivos.sort()
-
-    if not arquivos:
-        print("Nenhum arquivo PDF encontrado na pasta informada.")
-        return
-
-    # Adiciona cada arquivo no mesclador
-    for arquivo in arquivos:
-        caminho_arquivo = os.path.join(pasta_origem, arquivo)
-        merger.append(caminho_arquivo)
-        print(f"Adicionado: {arquivo}")
-
-    # Gera o arquivo final unificado
-    merger.write(caminho_final)
-    merger.close()
-
-    print(f"\nSucesso! PDF unificado salvo em: {caminho_final}")
-
-
-# --- Parâmetros de Uso ---
-pasta_arquivos = r"C:\caminho\para\sua\pasta"  # Informe o caminho da pasta
-nome_do_projeto = "Projeto_Exemplo"  # Nome do projeto
-mes_competencia = "09"  # Mês (ex: 09 ou 9)
-ano_competencia = "2026"  # Ano (ex: 2026)
-
-# Execução
-mesclar_pdfs(
-    pasta_arquivos, nome_do_projeto, mes_competencia, ano_competencia
+st.title("📄 Juntar Arquivos PDF")
+st.write(
+    "Selecione os arquivos PDF, informe os dados do projeto e baixe o arquivo unificado."
 )
+
+# Formulário de entrada de dados
+nome_projeto = st.text_input("Nome do Projeto", value="Projeto_Exemplo")
+
+col1, col2 = st.columns(2)
+with col1:
+    mes = st.number_input("Mês Competência", min_value=1, max_value=12, value=9)
+with col2:
+    ano = st.number_input("Ano Competência", min_value=2020, max_value=2030, value=2026)
+
+# Upload dos PDFs
+arquivos_pdf = st.file_uploader(
+    "Carregue os arquivos PDF aqui", type=["pdf"], accept_multiple_files=True
+)
+
+if arquivos_pdf:
+    st.info(f"{len(arquivos_pdf)} arquivo(s) selecionado(s).")
+
+    if st.button("Unificar PDFs"):
+        try:
+            writer = PdfWriter()
+
+            # Ordena os arquivos alfabeticamente pelo nome original
+            arquivos_ordenados = sorted(arquivos_pdf, key=lambda x: x.name)
+
+            for pdf in arquivos_ordenados:
+                writer.append(pdf)
+
+            # Salva o arquivo mesclado na memória
+            output_pdf = io.BytesIO()
+            writer.write(output_pdf)
+            writer.close()
+            output_pdf.seek(0)
+
+            # Formata o nome final do arquivo (ex: Projeto_Exemplo_09-2026.pdf)
+            mes_formatado = f"{int(mes):02d}"
+            nome_arquivo_final = f"{nome_projeto}_{mes_formatado}-{ano}.pdf"
+
+            st.success("PDFs unificados com sucesso!")
+
+            # Botão de download para o usuário
+            st.download_button(
+                label="📥 Baixar PDF Unificado",
+                data=output_pdf,
+                file_name=nome_arquivo_final,
+                mime="application/pdf",
+            )
+        except Exception as e:
+            st.error(f"Ocorreu um erro ao processar os arquivos: {e}")
